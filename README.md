@@ -1,4 +1,19 @@
-# QuickShare Chat
+<p align="center">
+  <a href="https://nodejs.org/en/">
+    <img src="https://img.shields.io/badge/Node.js-20%2B-green?logo=node.js&logoColor=white" alt="Node.js 20+" />
+  </a>
+  <a href="https://www.npmjs.com/">
+    <img src="https://img.shields.io/badge/npm-v10-red?logo=npm&logoColor=white" alt="npm v10" />
+  </a>
+  <a href="https://www.docker.com/">
+    <img src="https://img.shields.io/badge/Docker-24+-blue?logo=docker&logoColor=white" alt="Docker" />
+  </a>
+  <a href="https://socket.io/">
+    <img src="https://img.shields.io/badge/Socket.IO-v4-black?logo=socket.io&logoColor=white" alt="Socket.IO" />
+  </a>
+</p>
+
+# QuickShare Chat [FR]
 
 Outil de sessions éphémères auto‑hébergeable pour collaborer rapidement : mini tableau, espace de dessin, dépôt/partage de fichiers (quota 5 Go), chat et texte en temps réel via Socket.IO. Aucune donnée personnelle.
 
@@ -53,3 +68,62 @@ Voir `nginx.conf` pour un exemple générique (remplacez le domaine et les chemi
 ## Licence
 
 MIT — voir `LICENCE`.
+
+___
+
+# QuickShare Chat [EN]
+
+Ephemeral self-hosted sessions tool for quick collaboration: mini whiteboard, drawing space, file upload/share (5 GB quota), chat and real-time text via Socket.IO. No personal data required.
+
+Works on Node.js 18+ (recommended: 20).
+
+## Local Installation
+
+```bash
+npm install
+npm run start
+```
+
+By default, the app listens on port 3900. Open: [http://localhost:3900](http://localhost:3900)
+
+## Environment Variables
+
+* PORT: HTTP port (default: 3900)
+* DATA\_DIR: storage directory for sessions (default: ./data)
+* SESSION\_TTL\_DAYS: session lifespan in days (default: 7)
+* SESSION\_QUOTA\_BYTES: quota per session in bytes (default: 5 GB)
+* MAX\_UPLOAD\_BYTES: max size per uploaded file (default: 500 MB)
+* PAYPAL\_URL: upgrade/donation link shown if quota exceeded (default: placeholder)
+* BASE\_PATH: sub-path if the app is served behind a reverse proxy (e.g., /quickshare-chat)
+
+A `.env.example` file is provided as a reference.
+
+## Docker
+
+A `Dockerfile` is provided.
+
+Example execution (PowerShell):
+
+```bash
+docker build -t quickshare-chat .
+docker run --rm -p 3900:3900 -e PORT=3900 -v ${PWD}/data:/app/data quickshare-chat
+```
+
+On CMD: `-v %cd%/data:/app/data`.
+On Linux/macOS: `-v $(pwd)/data:/app/data`.
+
+## Reverse Proxy (Nginx)
+
+Serve the app under a sub-path (e.g., /quickshare-chat) and point the proxy to `http://127.0.0.1:3900/`.
+
+See `nginx.conf` for a generic example (replace the domain and certificate paths).
+
+## Security and Best Practices
+
+* Do not commit production data: `data/` is already in `.gitignore`.
+* Adjust `MAX_UPLOAD_BYTES` and `SESSION_QUOTA_BYTES` according to your needs.
+* Put the app behind an HTTPS reverse proxy in production.
+
+## License
+
+MIT — see `LICENSE`.
