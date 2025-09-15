@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuickShare Chat</title>
+<link rel="icon" href="favicon.svg" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+	.home-btn{position:fixed;right:18px;top:18px;background:rgba(0,0,0,.6);color:#fff;padding:8px 10px;border-radius:8px;text-decoration:none;border:1px solid rgba(255,255,255,.06);z-index:9999}
+	.home-btn:hover{background:rgba(255,255,255,.04)}
+</style>
+</head>
+<body>
+<a class="home-btn" href="/">← Accueil</a>
+<main>
+<section id="welcome">
+<h1>QuickShare Chat</h1>
+<p>Sessions éphémères pour collaborer rapidement (table, dessin, fichiers).</p>
+<div class="card">
+<h2>Créer une session</h2>
+<select id="type">
+<option value="table">Tableau</option>
+<option value="canvas">Espace vide</option>
+<option value="storage">Stockage d'images/fichiers</option>
+<option value="text">Texte</option>
+</select>
+<label class="public-toggle"><input type="checkbox" id="createPublic" /> Rendre publique</label>
+<button id="createBtn">Créer</button>
+</div>
+<div class="card">
+<h2>Rejoindre une session</h2>
+<input id="joinCode" placeholder="Code (ex: AB12CD)" maxlength="8" />
+<button id="joinBtn">Rejoindre</button>
+</div>
+<div class="card">
+	<h2>Sessions publiques</h2>
+	<div id="publicSessionsEmpty" class="muted">Aucune session publique pour le moment.</div>
+	<ul id="publicSessions"></ul>
+	<button id="refreshPublic">Rafraîchir</button>
+	<div class="muted">Ces sessions sont visibles par tous les visiteurs de cette page.</div>
+  
+</div>
+</section>
+
+
+<section id="session" class="hidden">
+<header>
+<button id="back">← Retour</button>
+<h2>Session <span id="codeSpan"></span> — <span id="typeSpan"></span></h2>
+<div id="expires"></div>
+<div class="header-actions">
+	<button id="deleteSession" class="danger">Supprimer la session</button>
+	<button id="copyLink">Copier le lien</button>
+    <label class="public-toggle"><input type="checkbox" id="publicToggle" /> Public</label>
+</div>
+<div class="profile">
+		<label>Pseudo <input id="profileName" placeholder="Votre nom (optionnel)" maxlength="50" /></label>
+		<label>Couleur <input id="profileColor" type="color" /></label>
+		<button id="profileSave">Appliquer</button>
+		<span class="muted">Votre pseudo/couleur s'applique au chat et à la présence</span>
+	</div>
+</header>
+
+<!-- Onglets de modules partagés -->
+<nav id="tabs" class="tabs">
+	<button data-view="table" class="tab active">Tableau</button>
+	<button data-view="canvas" class="tab">Dessin</button>
+	<button data-view="storage" class="tab">Stockage</button>
+	<button data-view="text" class="tab">Texte</button>
+	<button data-view="chat" class="tab">Chat</button>
+	<span class="tab-help">(vous pouvez choisir un onglet différent de l'autre participant)</span>
+	</nav>
+
+
+<div id="view-table" class="hidden">
+<div id="grid"></div>
+</div>
+
+
+<div id="view-canvas" class="hidden">
+<canvas id="board" width="1000" height="600"></canvas>
+<div class="toolbar">
+	<label>Couleur <input type="color" id="color" value="#000000" /></label>
+	<label>Largeur <input type="range" id="width" min="1" max="20" value="2" /></label>
+	<button id="toolPen" class="tool active" title="Stylo">✏️</button>
+		<button id="toolEraser" class="tool" title="Gomme">🩹</button>
+		<button id="undoCanvas" class="tool" title="Annuler le dernier trait">↩️ Annuler</button>
+		<button id="clearCanvas" class="danger" title="Effacer le dessin">Effacer</button>
+	<span>Astuce: maintenir la souris pour dessiner.</span>
+</div>
+</div>
+
+
+<div id="view-storage" class="hidden">
+<form id="upForm">
+<input type="file" id="file" name="file" />
+<button>Uploader</button>
+<span id="quotaMsg" class="warn hidden"></span>
+</form>
+<ul id="files"></ul>
+</div>
+
+<!-- Éditeur de texte collaboratif -->
+<div id="view-text" class="hidden">
+	<div class="text-toolbar">
+			<button id="boldBtn" title="Gras (Ctrl+B)"><b>B</b></button>
+			<button id="italicBtn" title="Italique (Ctrl+I)"><i>I</i></button>
+			<button id="underlineBtn" title="Souligné (Ctrl+U)"><u>U</u></button>
+			<button id="saveNoteBtn" title="Enregistrer dans les fichiers">💾 Enregistrer la note</button>
+			<span class="muted">Texte partagé entre les participants</span>
+		</div>
+	<textarea id="textArea" placeholder="Commencez à écrire..."></textarea>
+	<div class="muted">Astuce: tout le monde voit les modifications en temps réel.</div>
+</div>
+
+<!-- Chat en temps réel -->
+<div id="view-chat" class="hidden">
+	<div id="chatMessages" class="chat-messages"></div>
+    <form id="chatForm" class="chat-form">
+		<textarea id="chatInput" placeholder="Message… (Entrée pour envoyer, Shift+Entrée pour nouvelle ligne)" maxlength="5000" rows="2"></textarea>
+		<input id="chatFile" type="file" multiple />
+		<button type="submit">Envoyer</button>
+	</form>
+	<div class="muted">Les pièces jointes utilisent le quota de la session (5 Go).</div>
+</div>
+</section>
+</main>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
