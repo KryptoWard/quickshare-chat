@@ -1,4 +1,12 @@
-// server.js — Express + Socket.IO — sessions éphémères collaboratives
+// server.js — Express + Socket.IO — sessions éphémères collaboratives (FR)
+// server.js — Express + Socket.IO — ephemeral collaborative sessions (EN)
+//
+// FR: Ce serveur fournit des sessions légères pour partager tableur, dessin,
+//     fichiers, texte et chat en temps réel. Aucune authentification intégrée,
+//     designé pour un usage privé/auto-hébergé derrière un reverse proxy.
+// EN: This server provides lightweight sessions to share spreadsheet, drawing,
+//     files, text and real-time chat. No built-in auth; intended for private
+//     self-hosting behind a reverse proxy.
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
@@ -22,32 +30,38 @@ import { ensureDir, readJSON, writeJSON, safeBasename } from './lib/fs-helper.js
 import { withinQuotaOrThrow } from './lib/quota.js';
 import { scheduleCleanup } from './lib/cleanup.js';
 
-// Basic setup
+// ------------------------------------------------------------
+// Basic setup / Initialisation de base
+// ------------------------------------------------------------
 await ensureDir(DATA_DIR);
 const app = express();
 const server = http.createServer(app);
+// Socket.IO path honors BASE_PATH so it works under subpaths
+// Le chemin Socket.IO respecte BASE_PATH pour fonctionner sous un sous-chemin
 const io = new SocketIOServer(server, { path: `${BASE_PATH || ''}/socket.io`, cors: { origin: '*', methods: ['GET','POST','DELETE'] } });
 
-// Middleware
+// Middleware (JSON, CORS). Add rate-limiting in front if needed.
+// Middleware (JSON, CORS). Ajouter un rate-limit en amont si nécessaire.
 app.use(cors());
 app.use(express.json());
 
-// Static files (Windows-safe)
+// Static files (Windows-safe) / Fichiers statiques (compatible Windows)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicDir = path.join(__dirname, 'public');
 app.use(BASE_PATH || '/', express.static(publicDir));
 // Also expose static under /join so relative links (styles.css, client.js, favicon.svg) work on /join/:code
+// Expose aussi sous /join pour que les liens relatifs fonctionnent sur /join/:code
 app.use(`${BASE_PATH || ''}/join`, express.static(publicDir));
 
-// Root & join routes (SPA entry)
+// Root & join routes (SPA entry) / Routes racine & join (entrée SPA)
 app.get(`${BASE_PATH || ''}/`, (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 app.get(`${BASE_PATH || ''}/join/:code`, (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
-// Health check
+// Health check endpoint for probes / Endpoint de vérification (sondes)
 app.get(`${BASE_PATH || ''}/healthz`, (_req, res) => res.json({ ok: true }));
 
-// Helpers
+// Helpers / Utilitaires
 function sessionPath(code) { return path.join(DATA_DIR, code); }
 function sessionFilesPath(code) { return path.join(sessionPath(code), 'files'); }
 // Presence (mémoire process) : { [sessionCode]: { [socketId]: { userId, name, color } } }
@@ -64,7 +78,7 @@ async function ensureSession(code) {
 	return metaPath;
 }
 
-// Multer storage for uploads
+// Multer storage for uploads / Stockage Multer pour uploads
 const storage = multer.diskStorage({
 	destination: async (req, file, cb) => {
 		try {
@@ -76,16 +90,21 @@ const storage = multer.diskStorage({
 	},
 	filename: (req, file, cb) => {
 		// Sanitize and shorten filename to avoid FS limits; preserve extension
+		// Nettoie et raccourcit le nom de fichier; conserve l'extension
 		const raw = path.basename(file.originalname).replace(/[/\\]/g, '');
 		let ext = path.extname(raw).slice(0, 16);
 		// keep only safe chars in ext (., letters, digits, _ -)
+		// ne garder que les caractères sûrs pour l'extension
 		ext = ext.replace(/[^.A-Za-z0-9_-]/g, '');
 		let name = path.basename(raw, ext);
 		// collapse spaces
+		// compacter les espaces
 		name = name.replace(/\s+/g, ' ').trim();
 		// restrict charset to safe URL/FS set
+		// restreindre l'alphabet à des caractères sûrs
 		name = name.replace(/[^A-Za-z0-9._-]+/g, '-');
 		// max base length so that final id stays < 180 chars
+		// longueur max du nom de base pour rester < 180 caractères
 		const MAX_BASE = 120;
 		if (name.length > MAX_BASE) name = name.slice(0, MAX_BASE);
 		const stamp = Date.now().toString(36);
@@ -96,7 +115,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: MAX_UPLOAD_BYTES } });
 
-// API — List files
+// API — List files / Lister fichiers d'une session
 app.get(`${BASE_PATH || ''}/api/session/:code/files`, async (req, res) => {
 	try {
 		const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -109,7 +128,7 @@ app.get(`${BASE_PATH || ''}/api/session/:code/files`, async (req, res) => {
 	}
 });
 
-// API — Create/ensure session
+// API — Create/ensure session / Créer/assurer l'existence d'une session
 app.put(`${BASE_PATH || ''}/api/session/:code`, async (req, res) => {
 	try {
 		const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -123,7 +142,7 @@ app.put(`${BASE_PATH || ''}/api/session/:code`, async (req, res) => {
 	}
 });
 
-// API — Basculer public/privé pour une session
+// API — Toggle public/private for a session / Basculer public/privé
 app.put(`${BASE_PATH || ''}/api/session/:code/public`, async (req, res) => {
 	try {
 		const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -139,7 +158,7 @@ app.put(`${BASE_PATH || ''}/api/session/:code/public`, async (req, res) => {
 	}
 });
 
-// API — lister sessions publiques (limité)
+// API — list public sessions (limited) / lister sessions publiques (limité)
 app.get(`${BASE_PATH || ''}/api/public-sessions`, async (_req, res) => {
 	try {
 		const entries = fs.readdirSync(DATA_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
@@ -165,6 +184,8 @@ app.get(`${BASE_PATH || ''}/api/public-sessions`, async (_req, res) => {
 });
 
 // API — Upload file (with explicit Multer error handling)
+// FR: Gestion dédiée des erreurs Multer (taille max, etc.) et rollback sur quota.
+// EN: Dedicated Multer error handling (max size, etc.) and rollback on quota exceed.
 app.post(`${BASE_PATH || ''}/api/session/:code/upload`, (req, res) => {
 	const handler = upload.single('file');
 	handler(req, res, async (err) => {
@@ -188,6 +209,7 @@ app.post(`${BASE_PATH || ''}/api/session/:code/upload`, (req, res) => {
 			}
 
 			// Quota check after save; rollback if exceeded
+			// Vérification du quota après écriture; suppression si dépassé
 			try {
 				await withinQuotaOrThrow(sdir);
 			} catch (qerr) {
@@ -214,7 +236,7 @@ app.post(`${BASE_PATH || ''}/api/session/:code/upload`, (req, res) => {
 	});
 });
 
-// API — Enregistrer une note (texte) comme fichier .txt sous quota
+// API — Save a text note as a .txt file under quota / Enregistrer une note texte
 app.post(`${BASE_PATH || ''}/api/session/:code/save-note`, async (req, res) => {
 	try {
 		const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -254,7 +276,7 @@ app.post(`${BASE_PATH || ''}/api/session/:code/save-note`, async (req, res) => {
 	}
 });
 
-// Télécharger fichier
+// Download a file with appropriate headers / Télécharger un fichier
 app.get(`${BASE_PATH || ''}/api/session/:code/file/:id`, async (req, res) => {
 	try {
 		const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -292,7 +314,7 @@ app.get(`${BASE_PATH || ''}/api/session/:code/file/:id`, async (req, res) => {
 	}
 });
 
-// Supprimer fichier
+// Delete a file from a session / Supprimer fichier
 app.delete(`${BASE_PATH || ''}/api/session/:code/file/:id`, async (req, res) => {
 	const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
 	const id = safeBasename(req.params.id);
@@ -308,7 +330,7 @@ app.delete(`${BASE_PATH || ''}/api/session/:code/file/:id`, async (req, res) => 
 	return res.json({ ok: true });
 });
 
-// Supprimer entièrement une session (dossier + fichiers)
+// Delete a whole session (directory + files) / Supprimer entièrement une session
 app.delete(`${BASE_PATH || ''}/api/session/:code`, async (req, res) => {
     try {
         const code = safeBasename(req.params.code).slice(0, MAX_SESS_CODE_LEN);
@@ -324,7 +346,7 @@ app.delete(`${BASE_PATH || ''}/api/session/:code`, async (req, res) => {
     }
 });
 
-// Socket.IO — synchronisation table & canvas
+// Socket.IO — sync table, canvas, text, chat & presence / synchronisation
 io.on('connection', (socket) => {
 	socket.on('join', async ({ code, userId, name, color }) => {
 		const safe = safeBasename(code).slice(0, MAX_SESS_CODE_LEN);
@@ -341,7 +363,7 @@ io.on('connection', (socket) => {
 		const ucolor = (typeof color === 'string' && /^#?[0-9A-Fa-f]{6}$/.test(color)) ? (color.startsWith('#') ? color : '#' + color) : undefined;
 		presence[safe][socket.id] = { userId: uid, name: uname || undefined, color: ucolor };
 
-		// Envoyer l’état initial
+		// Send initial state / Envoyer l’état initial
 		const meta = await readJSON(metaPath);
 		// La sélection d'onglet n'est plus partagée; on n'envoie que les états des données
 		socket.emit('state:init', { table: meta.table, canvas: meta.canvas, text: meta.text, chat: meta.chat || { messages: [] }, presence: Object.values(presence[safe] || {}), public: !!meta.public });
@@ -366,14 +388,14 @@ io.on('connection', (socket) => {
 		if (!fs.existsSync(metaPath)) return;
 		const meta = await readJSON(metaPath);
 		meta.canvas = meta.canvas || { strokes: [] };
-		// limite la taille d’un stroke
+		// Limit stroke payload size / limite la taille d’un stroke
 		const safeStroke = {
 			width: Math.min(Math.max(stroke.width || 2, 1), 20),
 			color: String(stroke.color || '#000000').slice(0, 16),
 			points: (stroke.points || []).slice(0, 200).map(p => ({ x: Math.floor(p.x), y: Math.floor(p.y) }))
 		};
 		meta.canvas.strokes.push(safeStroke);
-		// garde au plus 2000 strokes
+		// Keep at most 2000 strokes / garde au plus 2000 strokes
 		if (meta.canvas.strokes.length > 2000) meta.canvas.strokes.shift();
 		await writeJSON(metaPath, meta);
 		socket.to(`sess:${safe}`).emit('canvas:stroke', safeStroke);
@@ -471,7 +493,7 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('disconnect', () => {
-		// Retirer des presences et notifier
+		// Remove from presence and notify others / Retirer des présences
 		for (const [sess, users] of Object.entries(presence)) {
 			if (users[socket.id]) {
 				delete users[socket.id];
@@ -481,9 +503,10 @@ io.on('connection', (socket) => {
 	});
 });
 
-// Tâche de nettoyage périodique
+// Periodic cleanup task / Tâche de nettoyage périodique
 scheduleCleanup({ DATA_DIR, SESSION_TTL_DAYS });
 
+// Start HTTP server / Démarrer le serveur HTTP
 server.listen(APP_PORT, () => {
 	console.log(`QuickShare Chat listening on :${APP_PORT}${BASE_PATH || ''}`);
 });

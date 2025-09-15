@@ -1,6 +1,7 @@
-// client.js — logique front pour créer/rejoindre et collaborer
+// client.js — logique front pour créer/rejoindre et collaborer (FR)
+// client.js — front-end logic to create/join and collaborate (EN)
 
-// Helpers DOM
+// Helpers DOM / DOM helpers
 const $ = (sel) => document.querySelector(sel);
 const joinParams = (() => {
 	const m = location.pathname.match(/\/join\/([A-Za-z0-9]{1,8})/);
@@ -8,10 +9,11 @@ const joinParams = (() => {
 })();
 
 // Compute basePath (supports hosting under any subpath like /quickshare or /quickshare-chat)
+// Calcule le basePath pour supporter un sous-chemin (ex: /quickshare-chat)
 const pathParts = location.pathname.split('/').filter(Boolean);
 const basePath = pathParts.length && pathParts[0] !== 'join' ? '/' + pathParts[0] : '';
 
-// State global
+// Global UI/app state / État global de l'app
 const state = {
 	code: null,
 	type: null, // type de session à la création (conservé pour l'UX), mais la vue active est partagée
@@ -32,7 +34,7 @@ const state = {
 	})()
 };
 
-// API client
+// API client (fetch JSON endpoints) / Client API (fetch endpoints JSON)
 const api = {
 	ensure: async (code) => {
 		const r = await fetch(`${basePath}/api/session/${encodeURIComponent(code)}`, { method: 'PUT' });
@@ -46,7 +48,7 @@ const api = {
 	}
 };
 
-// Views
+// Views references / Références vues
 const welcome = $('#welcome');
 const sessionView = $('#session');
 const codeSpan = $('#codeSpan');
@@ -96,7 +98,7 @@ const chatForm = $('#chatForm');
 const chatInput = $('#chatInput');
 const chatFile = $('#chatFile');
 
-// Socket and init
+// Socket and init (real-time) / Socket et initialisation (temps réel)
 function connectSocket(code) {
 	state.socket = io({ path: `${basePath}/socket.io` });
 
@@ -107,6 +109,7 @@ function connectSocket(code) {
 	});
 
 	// Init payload (view selection is now local-only)
+	// Chargement initial (la sélection d'onglet est locale uniquement)
 	state.socket.on('state:init', ({ table, canvas, text, chat, presence, public: isPublic }) => {
 		// construire toutes les vues une fois
 		buildTable(table);
@@ -133,7 +136,7 @@ function connectSocket(code) {
 	state.socket.on('files:update', () => {
 		if (state.activeView === 'storage') refreshFiles();
 	});
-	// Canvas strokes
+	// Canvas strokes (drawing events) / Traces canvas (événements dessin)
 	state.socket.on('canvas:stroke', (s) => { localStrokes.push(s); drawStroke(s); });
 
 	// Canvas undo
@@ -168,7 +171,7 @@ function connectSocket(code) {
 		}
 	});
 
-	// Canvas cleared
+	// Canvas cleared / Canvas effacé
 	state.socket.on('canvas:clear', () => {
 		clearCanvas();
 		localStrokes = [];
@@ -185,7 +188,7 @@ function connectSocket(code) {
 	});
 }
 
-// Table
+// Table grid rendering and updates / Rendu du tableau et mises à jour
 function buildTable(table) {
 	grid.innerHTML = '';
 	const rows = table?.rows ?? 10;
@@ -208,7 +211,7 @@ function buildTable(table) {
 	}
 }
 
-// Canvas
+// Canvas drawing tools / Outils de dessin Canvas
 const ctx = board.getContext('2d');
 let drawing = false;
 let points = [];
@@ -242,6 +245,7 @@ function initCanvas(canvasState) {
 	localStrokes = [...(canvasState?.strokes || [])];
 	for (const s of localStrokes) drawStroke(s);
 	// listeners once
+	// Écouteurs de souris — dessin progressif
 	board.addEventListener('mousedown', (e) => {
 		drawing = true; points = [{ x: e.offsetX, y: e.offsetY }];
 	}, { passive: true });
@@ -259,7 +263,7 @@ function initCanvas(canvasState) {
 	});
 }
 
-// STORAGE
+// STORAGE (uploads + list) / STOCKAGE (uploads + liste)
 function initStorage() {
 	if (state._listenersBound.storage) return;
 	state._listenersBound.storage = true;
@@ -353,7 +357,7 @@ function prettyBytes(n) {
 	return v.toFixed(1) + ' ' + units[i];
 }
 
-// Navigation
+// Navigation between welcome and session / Navigation accueil ↔ session
 function showWelcome() {
 	sessionView.classList.add('hidden');
 	welcome.classList.remove('hidden');
@@ -378,7 +382,7 @@ function startSession({ code, type, expiresAt }) {
 	history.pushState({}, '', `${basePath}/join/${encodeURIComponent(code)}`);
 }
 
-// Create / Join / Back handlers
+// Create / Join / Back handlers / Gestion des boutons créer, rejoindre, retour
 document.addEventListener('DOMContentLoaded', () => {
 	$('#createBtn').addEventListener('click', async () => {
 		const type = $('#type').value;
@@ -427,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		} catch { alert('Erreur réseau'); }
 	});
 
-	// Public sessions list on welcome
+	// Public sessions list on welcome / Liste des sessions publiques
 	const publicList = $('#publicSessions');
 	const publicEmpty = $('#publicSessionsEmpty');
 	const refreshBtn = $('#refreshPublic');
@@ -487,7 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	});
 });
 
-// Gestion des onglets partagés
+// Tabs selection (local-only) / Sélection des onglets (locale seulement)
 function selectView(view) {
 	state.activeView = view;
 	// tabs UI
@@ -519,7 +523,7 @@ function initText(textState) {
 	});
 }
 
-// Tabs click -> local selection only
+// Tabs click -> local selection only / Clic onglets → sélection locale
 tabs.addEventListener('click', (e) => {
 	const b = e.target.closest('button.tab');
 	if (!b) return;
@@ -528,7 +532,7 @@ tabs.addEventListener('click', (e) => {
 	selectView(view);
 });
 
-// Delete session
+// Delete session (server-side removal) / Supprimer la session (côté serveur)
 deleteBtn.addEventListener('click', async () => {
 	if (!state.code) return;
 	if (!confirm('Supprimer définitivement cette session ?')) return;
@@ -542,19 +546,20 @@ deleteBtn.addEventListener('click', async () => {
 	}
 });
 
-// Copy link
+// Copy link to clipboard / Copier le lien dans le presse-papiers
 copyLinkBtn.addEventListener('click', async () => {
 	const url = location.origin + `${basePath}/join/${encodeURIComponent(state.code)}`;
 	try { await navigator.clipboard.writeText(url); alert('Lien copié'); } catch { prompt('Copiez le lien :', url); }
 });
 
-// Clear canvas (effacer dessin)
+// Clear canvas (erase drawing) / Effacer le dessin
 if (clearCanvasBtn) clearCanvasBtn.addEventListener('click', () => {
 	if (!state.code) return;
 	if (!confirm('Effacer tout le dessin pour cette session ?')) return;
 	state.socket.emit('canvas:clear', { code: state.code });
 });
 
+// Undo last stroke / Annuler le dernier trait
 if (undoCanvasBtn) undoCanvasBtn.addEventListener('click', () => {
 	if (!state.code) return;
 	state.socket.emit('canvas:undo', { code: state.code });
@@ -571,7 +576,7 @@ if (toolPenBtn && toolEraserBtn) {
 	toolEraserBtn.addEventListener('click', () => { tool = 'eraser'; toolEraserBtn.classList.add('active'); toolPenBtn.classList.remove('active'); });
 }
 
-// Text formatting (simple markdown-like insertion around selection)
+// Text formatting (simple markdown-like insertion) / Mise en forme texte (style markdown)
 function wrapSelection(before, after = before) {
 	const el = textArea; if (!el) return;
 	const start = el.selectionStart, end = el.selectionEnd;
@@ -588,7 +593,7 @@ if (boldBtn) boldBtn.addEventListener('click', () => wrapSelection('**'));
 if (italicBtn) italicBtn.addEventListener('click', () => wrapSelection('*'));
 if (underlineBtn) underlineBtn.addEventListener('click', () => wrapSelection('__'));
 
-// Save note button -> send to server to store as file under quota
+// Save note as file under quota / Enregistrer la note comme fichier (quota)
 if (saveNoteBtn) saveNoteBtn.addEventListener('click', async () => {
 	if (!state.code) return;
 	const text = textArea.value || '';
@@ -616,7 +621,7 @@ if (saveNoteBtn) saveNoteBtn.addEventListener('click', async () => {
 	}
 });
 
-// Keyboard shortcuts for text formatting
+// Keyboard shortcuts for text formatting / Raccourcis clavier mise en forme
 document.addEventListener('keydown', (e) => {
 	if (state.activeView !== 'text') return;
 	if (!e.ctrlKey) return;
@@ -631,7 +636,7 @@ function viewLabel(view) {
 	return view === 'table' ? 'Tableau' : view === 'canvas' ? 'Dessin' : view === 'storage' ? 'Stockage' : view === 'chat' ? 'Chat' : 'Texte';
 }
 
-// ===== Chat logic =====
+// ===== Chat logic / Logique du chat =====
 function initChat(chatState) {
 	if (!chatMessagesEl || !chatForm) return;
 	chatMessagesEl.innerHTML = '';
@@ -668,7 +673,7 @@ function initChat(chatState) {
 		chatInput.value = '';
 	});
 
-	// Enter to send, Shift+Enter for newline
+	// Enter to send, Shift+Enter for newline / Entrée pour envoyer, Shift+Entrée pour nouvelle ligne
 	chatInput.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
@@ -711,7 +716,7 @@ function escapeHtml(s) {
 	return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// ===== Presence UI =====
+// ===== Presence UI / Interface de présence =====
 function updatePresence(users) {
 	if (!presenceBar) return;
 	presenceBar.innerHTML = '';
@@ -733,7 +738,7 @@ function colorFromId(id) {
 function shortId(id) { return String(id).slice(0, 4); }
 function labelFromId(id) { return `Invité-${shortId(id).toUpperCase()}`; }
 
-// Profile storage helpers
+// Profile storage helpers / Aide stockage profil
 function getProfile() {
 	try {
 		const raw = localStorage.getItem('qs_profile');
